@@ -48,18 +48,21 @@
 #' The maximum number of iterations in the NIPALS approach is tuned by \code{max_iterations}.
 #'
 #' @examples
-#' test.data <- scale(matrix(rnorm(100)))
-#' hist(replicate(1000,
-#'          o2m(test.data,scale(matrix(rnorm(100))),1,0,0)$B_T.
-#'      ),main='No joint variation',xlab='B_T',xlim=c(0,0.6));
-#' hist(replicate(1000,
-#'          o2m(test.data,scale(test.data+rnorm(100))/2,1,0,0)$B_T.
-#'     ),main='B_T = 0.5 \n 25% joint variation',xlab='B_T',xlim=c(0,0.6));
-#' hist(replicate(1000,
-#'          o2m(test.data,scale(test.data+rnorm(100,0,0.1))/2,1,0,0)$B_T.
-#'     ),main='B_T = 0.5 \n 90% joint variation',xlab='B_T',xlim=c(0,0.6));
+#' test_X <- scale(matrix(rnorm(100*10),100,10))
+#' test_Y <- scale(matrix(rnorm(100*11),100,11))
+#' #  --------- Default run ------------ 
+#' o2m(test_X, test_Y, 3, 2, 1)
+#' #  ---------- Stripped version ------------- 
+#' o2m(test_X, test_Y, 3, 2, 1, stripped = TRUE)
+#' #  ---------- High dimensional version ---------- 
+#' o2m(test_X, test_Y, 3, 2, 1, p_thresh = 1)
+#' #  ------ High D and stripped version --------- 
+#' o2m(test_X, test_Y, 3, 2, 1, stripped = TRUE, p_thresh = 1)
+#' #  ------ Now with more iterations -------- 
+#' o2m(test_X, test_Y, 3, 2, 1, stripped = TRUE, p_thresh = 1, max_iterations = 1e6)
+#' #  ---------------------------------- 
 #'
-#' @seealso \code{\link{ssq}}, \code{\link{summary.o2m}}, \code{\link{plot.o2m}}, \code{\link{crossval_o2m}}
+#' @seealso \code{\link{summary.o2m}}, \code{\link{plot.o2m}}, \code{\link{crossval_o2m}}
 #'
 #' @export
 o2m <- function(X, Y, n, nx, ny, stripped = FALSE, 
@@ -82,7 +85,8 @@ o2m <- function(X, Y, n, nx, ny, stripped = FALSE,
   
   ssqX = ssq(X)
   ssqY = ssq(Y)
-  
+  if(length(n)>1 | length(nx)>1 | length(ny)>1)
+    stop("Number of components should be scalars, not vectors")
   if(ncol(X) < n + max(nx, ny) || ncol(Y) < n + max(nx, ny)) 
     stop("n + max(nx, ny) =", n + max(nx, ny), " exceed # columns in X or Y")
   if(nx != round(abs(nx)) || ny != round(abs(ny))) 
@@ -106,7 +110,7 @@ o2m <- function(X, Y, n, nx, ny, stripped = FALSE,
   highd = FALSE
   if ((ncol(X) > p_thresh && ncol(Y) > q_thresh)) {
     highd = TRUE
-    message("Using Power Method with tolerance ",tol," and max iterations ",max_iterations)
+    message("Using high dimensional mode with tolerance ",tol," and max iterations ",max_iterations)
     model = o2m2(X, Y, n, nx, ny, stripped, tol, max_iterations)
   } else if(stripped){
     model = o2m_stripped(X, Y, n, nx, ny)
@@ -182,12 +186,12 @@ o2m <- function(X, Y, n, nx, ny, stripped = FALSE,
     Y_hat <- Tt %*% B_T %*% t(C)
     X_hat <- U %*% B_U %*% t(W)
     
-    R2Xcorr <- (ssq(Tt %*% t(W))/ssqX)
-    R2Ycorr <- (ssq(U %*% t(C))/ssqY)
-    R2X_YO <- (ssq(T_Yosc %*% t(P_Yosc))/ssqX)
-    R2Y_XO <- (ssq(U_Xosc %*% t(P_Xosc))/ssqY)
-    R2Xhat <- 1 - (ssq(U %*% B_U %*% t(W) - X_true)/ssqX)
-    R2Yhat <- 1 - (ssq(Tt %*% B_T %*% t(C) - Y_true)/ssqY)
+    R2Xcorr <- (ssq(Tt)/ssqX)
+    R2Ycorr <- (ssq(U)/ssqY)
+    R2X_YO <- (ssq(T_Yosc)/ssqX)
+    R2Y_XO <- (ssq(U_Xosc)/ssqY)
+    R2Xhat <- (ssq(U %*% B_U)/ssqX)
+    R2Yhat <- (ssq(Tt %*% B_T)/ssqY)
     R2X <- R2Xcorr + R2X_YO
     R2Y <- R2Ycorr + R2Y_XO
     
@@ -456,12 +460,12 @@ o2m2 <- function(X, Y, n, nx, ny, stripped = FALSE, tol = 1e-10, max_iterations 
   H_UT <- U - Tt %*% B_T
   
   # R2
-  R2Xcorr <- (ssq(Tt %*% t(W))/ssq(X_true))
-  R2Ycorr <- (ssq(U %*% t(C))/ssq(Y_true))
-  R2X_YO <- (ssq(T_Yosc %*% t(P_Yosc))/ssq(X_true))
-  R2Y_XO <- (ssq(U_Xosc %*% t(P_Xosc))/ssq(Y_true))
-  R2Xhat <- 1 - (ssq(U %*% B_U %*% t(W) - X_true)/ssq(X_true))
-  R2Yhat <- 1 - (ssq(Tt %*% B_T %*% t(C) - Y_true)/ssq(Y_true))
+  R2Xcorr <- (ssq(Tt)/ssq(X_true))
+  R2Ycorr <- (ssq(U)/ssq(Y_true))
+  R2X_YO <- (ssq(T_Yosc)/ssq(X_true))
+  R2Y_XO <- (ssq(U_Xosc)/ssq(Y_true))
+  R2Xhat <- (ssq(U %*% B_U)/ssq(X_true))
+  R2Yhat <- (ssq(Tt %*% B_T)/ssq(Y_true))
   R2X <- R2Xcorr + R2X_YO
   R2Y <- R2Ycorr + R2Y_XO
   
@@ -578,10 +582,10 @@ o2m_stripped <- function(X, Y, n, nx, ny) {
   
   R2Xcorr <- ssq(Tt) / ssq(X_true)
   R2Ycorr <- ssq(U) / ssq(Y_true)
-  R2X_YO <- ssq(T_Yosc %*% t(P_Yosc)) / ssq(X_true)
-  R2Y_XO <- ssq(U_Xosc %*% t(P_Xosc)) / ssq(Y_true)
-  R2Xhat <- 1 - (ssq(U %*% B_U %*% t(W) - X_true) / ssq(X_true))
-  R2Yhat <- 1 - (ssq(Tt %*% B_T %*% t(C) - Y_true) / ssq(Y_true))
+  R2X_YO <- ssq(T_Yosc) / ssq(X_true)
+  R2Y_XO <- ssq(U_Xosc) / ssq(Y_true)
+  R2Xhat <- (ssq(U %*% B_U) / ssq(X_true))
+  R2Yhat <- (ssq(Tt %*% B_T) / ssq(Y_true))
   R2X <- R2Xcorr + R2X_YO
   R2Y <- R2Ycorr + R2Y_XO
   
@@ -637,9 +641,9 @@ o2m_stripped2 <- function(X, Y, n, nx, ny, tol = 1e-10, max_iterations = 100) {
   p <- dim(X)[2]
   q <- dim(Y)[2]
   
-  T_Yosc <- U_Xosc <- matrix(NA, N, 1)
-  P_Yosc <- W_Yosc <- matrix(NA, p, 1)
-  P_Xosc <- C_Xosc <- matrix(NA, q, 1)
+  T_Yosc <- U_Xosc <- matrix(0, N, 1)
+  P_Yosc <- W_Yosc <- matrix(0, p, 1)
+  P_Xosc <- C_Xosc <- matrix(0, q, 1)
   
   if (nx + ny > 0) {
     n2 <- n + max(nx, ny)
@@ -707,10 +711,10 @@ o2m_stripped2 <- function(X, Y, n, nx, ny, tol = 1e-10, max_iterations = 100) {
   
   R2Xcorr <- ssq(Tt) / ssq(X_true)
   R2Ycorr <- ssq(U) / ssq(Y_true)
-  R2X_YO <- ssq(T_Yosc %*% t(P_Yosc)) / ssq(X_true)
-  R2Y_XO <- ssq(U_Xosc %*% t(P_Xosc)) / ssq(Y_true)
-  R2Xhat <- 1 - (ssq(U %*% B_U %*% t(W) - X_true) / ssq(X_true))
-  R2Yhat <- 1 - (ssq(Tt %*% B_T %*% t(C) - Y_true) / ssq(Y_true))
+  R2X_YO <- ssq(T_Yosc) / ssq(X_true)
+  R2Y_XO <- ssq(U_Xosc) / ssq(Y_true)
+  R2Xhat <- (ssq(U %*% B_U) / ssq(X_true))
+  R2Yhat <- (ssq(Tt %*% B_T) / ssq(Y_true))
   R2X <- R2Xcorr + R2X_YO
   R2Y <- R2Ycorr + R2Y_XO
   

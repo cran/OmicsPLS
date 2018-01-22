@@ -1,8 +1,8 @@
 Package: OmicsPLS
 Type: Package
 Title: Perform Two-Way Orthogonal Partial Least Squares
-Version: 1.0.3
-Date: 2017-05-08
+Version: 1.1.0
+Date: 2018-01-22
 Author: Said el Bouhaddani, Jeanine Houwing-Duistermaat, Geurt Jongbloed, Szymon Kielbasa and
     Hae-Won Uh
 Maintainer: Said el Bouhaddani <s.el_bouhaddani@lumc.nl>
@@ -17,6 +17,6 @@ Suggests: testthat, knitr, rmarkdown, gplots,
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2017-08-07 22:27:31 UTC; selbouhaddani
+Packaged: 2018-01-22 11:40:01 UTC; selbouhaddani
 Repository: CRAN
-Date/Publication: 2017-08-07 23:29:19 UTC
+Date/Publication: 2018-01-22 11:52:39 UTC

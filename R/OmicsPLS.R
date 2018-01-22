@@ -245,7 +245,7 @@ loocv <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func = o2m
   input_checker(X, Y)
   if (!is.null(fitted_model)) {
     app_err <- F
-    warning("apparent error calculated with provided fit")
+    message("apparent error calculated with provided fit")
   }
   # determine type of model
   type <- 3  #ifelse(deparse(substitute(func))=='o2m',3,ifelse(deparse(substitute(func))=='oplsm',2,1))
@@ -278,7 +278,7 @@ loocv <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func = o2m
           # if(type==2){pars=list(X=X[-i,],Y=Y[-i,],ncomp=j,n_orth=j2)}
           # if(type==1){pars=list(X=X[-i,],Y=Y[-i,],ncomp=j)}
           fit <- try(do.call(func, pars), silent = T)
-          err[i] <- ifelse(class(fit) == "try-error", NA, rmsep(X[folds[ii], ], Y[folds[ii], ], 
+          err[i] <- ifelse(inherits(fit, "try-error"), NA, rmsep(X[folds[ii], ], Y[folds[ii], ], 
                                                                 fit))
         }
         mean_err[k] <- mean(err)
@@ -290,7 +290,7 @@ loocv <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func = o2m
           # if(class(fit)=='oplsm'){pars2=list(X=X,Y=Y,ncomp=j,n_orth=j2)}
           # if(class(fit)=='plsm'){pars2=list(X=X,Y=Y,ncomp=j)}
           fit2 <- try(do.call(func, pars2), F)
-          mean_fit[k] <- ifelse(class(fit) == "try-error", NA, rmsep(X, Y, fit2))
+          mean_fit[k] <- ifelse(inherits(fit, "try-error"), NA, rmsep(X, Y, fit2))
           # print('1e loop')
         }
         if (!is.null(fitted_model)) {
@@ -328,6 +328,8 @@ adjR2 <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, func = o2m, parall = F, cl = NU
                   q_thresh = p_thresh, tol = 1e-10, max_iterations = 100)
 {
   stopifnot(all(a == round(a)), all(a2 == round(a2)), all(b2 == round(b2)))
+  X <- as.matrix(X)
+  Y <- as.matrix(Y)
   input_checker(X, Y)
   cl_was_null <- FALSE
   if (!parall) {
@@ -342,7 +344,7 @@ adjR2 <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, func = o2m, parall = F, cl = NU
     clusterExport(cl = cl, varlist = c("ssq", "o2m_stripped", "adjR2"))
   }
   if (parall & !is.null(cl)) {
-    stopifnot("cluster" %in% class(cl))
+    stopifnot(inherits(cl,'cluster'))
     S_apply <- parSapply
   }
   
@@ -433,7 +435,7 @@ loocv_combi <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func
   Y = as.matrix(Y)
   input_checker(X, Y)
   if (!is.null(fitted_model)) {
-    if(class(fitted_model) != 'o2m'){stop("fitted_model should be of class 'o2m' or NULL")}
+    if(inherits(fitted_model,'o2m')){stop("fitted_model should be of class 'o2m' or NULL")}
     app_err <- F
     warning("apparent error calculated with provided fit")
   }
@@ -468,25 +470,25 @@ loocv_combi <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func
                          q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)
           }
           fit <- try(do.call(func, pars), silent = T)
-          if("try-error" %in% class(fit)) warning(fit[1])
-          err[i] <- ifelse("try-error" %in% class(fit), 
+          if(inherits(fit,'try-error')) warning(fit[1])
+          err[i] <- ifelse(inherits(fit, 'try-error'), 
                            NA, 
                            rmsep_combi(X[folds[ii], ], Y[folds[ii], ], fit))
         }
         mean_err[k] <- mean(err)
         # calculate apparent error
         if (app_err && is.null(fitted_model)) {
-          if (class(fit) == "o2m") {
+          if (inherits(fit,'o2m')) {
             pars2 <- list(X = X, Y = Y, n = j, nx = j2, ny = j3)
           }
-          if (class(fit) == "oplsm") {
-            pars2 <- list(X = X, Y = Y, ncomp = j, n_orth = j2)
-          }
-          if (class(fit) == "plsm") {
-            pars2 <- list(X = X, Y = Y, ncomp = j)
-          }
+          # if (class(fit) == "oplsm") {
+          #   pars2 <- list(X = X, Y = Y, ncomp = j, n_orth = j2)
+          # }
+          # if (class(fit) == "plsm") {
+          #   pars2 <- list(X = X, Y = Y, ncomp = j)
+          # }
           fit2 <- try(do.call(func, pars2), F)
-          mean_fit[k] <- ifelse(class(fit) == "try-error", NA, rmsep_combi(X, Y, fit2))
+          mean_fit[k] <- ifelse(inherits(fit,"try-error"), NA, rmsep_combi(X, Y, fit2))
           print("1e loop")
         }
         if (!is.null(fitted_model)) {
@@ -543,6 +545,8 @@ print.o2m <- function (x, ...) {
 #' @param ... Further arguments to \code{geom_text}, such as size, col, alpha, etc.
 #' 
 #' @return If \code{use_ggplot2} is \code{TRUE} a ggplot2 object. Else NULL.
+#' 
+#' @seealso \code{\link{summary.o2m}}
 #' 
 #' @export
 plot.o2m <- function (x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth"), i = 1, j = NULL, use_ggplot2=TRUE, label = c("number", "colnames"), ...)
@@ -601,6 +605,9 @@ plot.o2m <- function (x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth"),
 #' @return List with R2 values.
 #' @examples
 #' summary(o2m(scale(-2:2),scale(-2:2*4),1,0,0))
+#' 
+#' @seealso \code{\link{plot.o2m}}
+#' 
 #' @export
 summary.o2m <- function(object, digits = 3, ...) {
   fit <- object
@@ -614,8 +621,8 @@ summary.o2m <- function(object, digits = 3, ...) {
     R2_Yjoint = R2Ycorr,
     R2_Xhat = R2Xhat,
     R2_Yhat = R2Yhat,
-    R2_Xpred = 1 - ssq(H_TU)/ssq(Tt),
-    R2_Ypred = 1 - ssq(H_UT)/ssq(U),
+    R2_Xpred = R2Xhat / R2Xcorr,
+    R2_Ypred = R2Yhat / R2Ycorr,
     B_T = B_T.,
     B_U = B_U,
     flags = flags,
@@ -658,9 +665,9 @@ print.summary.o2m <- function(x, ...){
     print(round(R2_dataframe, digits))
     cat("\n")
     cat("-- Predictable variation in Y-joint part by X-joint part:\n")
-    cat("Variation in Yhat relative to U:",round(R2_Xpred,digits),"\n")
+    cat("Variation in T*B_T relative to U:",round(R2_Ypred,digits),"\n")
     cat("-- Predictable variation in X-joint part by Y-joint part:\n")
-    cat("Variation in Xhat relative to T:",round(R2_Ypred,digits),"\n")
+    cat("Variation in U*B_U relative to T:",round(R2_Xpred,digits),"\n")
     cat("\n")
     cat("-- Variances per component:\n\n")
     with(flags,{
@@ -706,6 +713,9 @@ print.summary.o2m <- function(x, ...){
 #' @return Loading matrix
 #' @examples
 #' loadings(o2m(scale(-2:2),scale(-2:2*4),1,0,0))
+#' 
+#' @seealso \code{\link{scores.o2m}}
+#' 
 #' @rdname loadings
 #' @export
 loadings <- function(x, ...) UseMethod("loadings")
@@ -739,6 +749,47 @@ loadings.o2m <- function(x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth
   return(loading_matrix)
 }
 
+#' Extract the scores from an O2PLS fit
+#'
+#' This function extracts score matrices from an O2PLS fit
+#'
+#' @param x Object of class \code{o2m}
+#' @param ... For consistency
+#' 
+#' @return Scores matrix
+#' @examples
+#' scores(o2m(scale(-2:2),scale(-2:2*4),1,0,0))
+#' 
+#' @seealso \code{\link{loadings.o2m}}
+#' 
+#' @rdname scores
+#' @export
+scores <- function(x, ...) UseMethod("scores")
+
+
+#' @inheritParams scores
+#' @param which_part character string. One of the following: 'Xjoint', 'Yjoint', 'Xorth' or 'Yorth'.
+#' @param subset subset of scores vectors to be extracted.
+#' 
+#' 
+#' @rdname scores
+#' @export
+scores.o2m <- function(x, which_part = c("Xjoint", "Yjoint", "Xorth", "Yorth"), 
+                         subset = 0, ...) {
+  if(any(subset != abs(round(subset)))) stop("subset must be a vector of non-negative integers")
+  
+  which_part = match.arg(which_part)
+  which_scores = switch(which_part, Xjoint = "Tt", Yjoint = "U", Xorth = "T_Yosc.", Yorth = "U_Xosc.")
+  scores_matrix = x[[which_scores]]
+  dim_names = dimnames(scores_matrix)
+  if(length(subset) == 1 && subset == 0) subset = 1:ncol(scores_matrix)
+  if(max(subset) > ncol(scores_matrix)) stop("Elements in subset exceed #components")
+  scores_matrix = as.matrix(scores_matrix[,subset])
+  dimnames(scores_matrix) <- dim_names
+  
+  return(scores_matrix)
+}
+
 #' Predicts X or Y
 #'
 #' Predicts X or Y based on new data on Y or X
@@ -748,11 +799,21 @@ loadings.o2m <- function(x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth
 #' @param XorY Character specifying whether \code{newdata} is X or Y.
 #' 
 #' @return Predicted Data
+#' 
+#' @details Prediction is done after correcting for orthogonal parts.
+#' 
 #' @examples
 #' predict(o2m(scale(1:10), scale(1:10), 1, 0, 0), newdata = scale(1:5), XorY = "X")
 #' @export
 predict.o2m <- function(object, newdata, XorY = c("X","Y"), ...) {
   XorY = match.arg(XorY)
+  Xnames = dimnames(newdata)
+  if(!is.matrix(newdata)){
+    message("newdata has class ",class(newdata),", trying to convert with as.matrix.",sep="")
+    newdata <- as.matrix(newdata)
+    dimnames(newdata) <- Xnames
+  }
+  input_checker(newdata)
   switch(XorY,
          X = if(ncol(newdata) != nrow(object$W.)) stop("Number of columns mismatch!"),
          Y = if(ncol(newdata) != nrow(object$C.)) stop("Number of columns mismatch!"))
