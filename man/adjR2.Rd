@@ -4,9 +4,21 @@
 \alias{adjR2}
 \title{Gridwise adjusted R2 for O2PLS}
 \usage{
-adjR2(X, Y, a = 1:2, a2 = 1, b2 = 1, func = o2m, parall = F,
-  cl = NULL, stripped = TRUE, p_thresh = 3000, q_thresh = p_thresh,
-  tol = 1e-10, max_iterations = 100)
+adjR2(
+  X,
+  Y,
+  a = 1:2,
+  a2 = 1,
+  b2 = 1,
+  func = o2m,
+  parall = F,
+  cl = NULL,
+  stripped = TRUE,
+  p_thresh = 3000,
+  q_thresh = p_thresh,
+  tol = 1e-10,
+  max_iterations = 100
+)
 }
 \arguments{
 \item{X}{Numeric matrix. Vectors will be coerced to matrix with \code{as.matrix} (if this is possible)}
@@ -31,9 +43,9 @@ adjR2(X, Y, a = 1:2, a2 = 1, b2 = 1, func = o2m, parall = F,
 
 \item{q_thresh}{Integer. If \code{Y} has more than \code{q_thresh} columns, a power method optimization is used, see \code{\link{o2m2}}}
 
-\item{tol}{double. Threshold for power method iteration}
+\item{tol}{Double. Threshold for which the NIPALS method is deemed converged. Must be positive.}
 
-\item{max_iterations}{Integer, Maximum number of iterations for power method}
+\item{max_iterations}{Integer. Maximum number of iterations for the NIPALS method.}
 }
 \value{
 Matrix with two rows:

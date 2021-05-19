@@ -3,12 +3,11 @@
 \docType{package}
 \name{OmicsPLS}
 \alias{OmicsPLS}
-\alias{OmicsPLS-package}
 \title{Data integration with O2PLS: Two-Way Orthogonal Partial Least Squares}
 \description{
-OmicsPLS software is described in (el Bouhaddani et al, 2018, BMC Bioinformatics).
-This is based on work of (Trygg & Wold, 2003).
-Includes the O2PLS fit, some misc functions and some cross-validation tools.
+The OmicsPLS package is an R package for penalized integration of heterogeneous omics data. 
+The software articles are published in (el Bouhaddani et al, 2018, \doi{10.1186/s12859-018-2371-3}) and (Gu et al, 2020, \doi{10.1186/s12859-021-03958-3}).
+OmicsPLS includes the O2PLS fit, the GO2PLS fit, cross-validation tools and some misc functions.
 }
 \section{Model and assumptions}{
 
@@ -33,10 +32,11 @@ See the help page of \code{\link{o2m}} for more information on parameters.
 There are four ways to obtain an O2PLS fit, depending on the dimensionality.
 \itemize{
  \item{} For the not-too-high dimensional case, you may use \code{\link{o2m}} with default parameters. E.g. \code{o2m(X,Y,n,nx,ny)}.
- \item{} In case you don't want the fancy output, but only the parameters, you may add \code{stripped = TRUE} to obtain a stripped version of \code{o2m} which avoids calculating and storing some matrices. E.g. \code{o2m(X,Y,n,nx,ny,stripped=TRUE)}.
- \item{} For high dimensional cases defined by \code{ncol(X)>p_thresh} and \code{ncol(Y)>q_thresh} a Power-Method approach is used which avoids storing large matrices. E.g. \code{o2m(X,Y,n,nx,ny,p_thresh=3000,q_thresh=3000)}.
+ \item{} In case you only want the parameters, you may add \code{stripped = TRUE} to obtain a stripped version of \code{o2m} which avoids calculating and storing some matrices. E.g. \code{o2m(X,Y,n,nx,ny,stripped=TRUE)}.
+ \item{} For high dimensional cases, defined by \code{ncol(X)>p_thresh} and \code{ncol(Y)>q_thresh}, a NIPALS approach is used which avoids storing large matrices. E.g. \code{o2m(X,Y,n,nx,ny,p_thresh=3000,q_thresh=3000)}.
  The thresholds are by default both at 3000 variables.
  \item{} If you want a stripped version in the high dimensional case, add \code{stripped = TRUE}. E.g. \code{o2m(X,Y,n,nx,ny,stripped=TRUE,p_thresh=3000,q_thresh=3000)}.
+ \item{} For GO2PLS, add \code{sparsity = TRUE} and specify how many variables or groups to retain. E.g. \code{o2m(X,Y,n,nx,ny,sparse=TRUE,keepx, keepy)}.
 }
 }
 
@@ -54,11 +54,32 @@ Determining the number of components \code{n,nx,ny} is an important task. For th
 See \code{citation("OmicsPLS")} for our proposed approach for determining the number of components, implemented in \code{crossval_o2m_adjR2}!
 \itemize{
  \item{} Cross-validation (CV) is done with \code{\link{crossval_o2m}} and \code{\link{crossval_o2m_adjR2}}, both have built in parallelization which relies on the \code{parallel} package.
- Usage is something like \code{crossval_o2m(X,Y,a,ax,ay)} where \code{a,ax,ay} are vectors of integers. See the help pages.
- \code{kcv} is the number of folds, with \code{kcv = nrow(X)} for Leave-One-Out CV. 
+ Usage is something like \code{crossval_o2m(X,Y,a,ax,ay,nr_folds)} where \code{a,ax,ay} are vectors of integers. See the help pages.
+ \code{nr_folds} is the number of folds, with \code{nr_folds = nrow(X)} for Leave-One-Out CV.
  \item{} For \code{crossval_o2m_adjR2} the same parameters are to be specified. This way of cross-validating is (potentially much)
- faster than the standard approach. 
+ faster than the standard approach. It is also recommended over the standard CV.
+ \item{} To cross-validate the number of variables to keep, use \code{\link{crossval_sparsity}}. 
 }
+}
+
+\section{S3 methods}{
+
+There are S3 methods implemented for a fit obtained with \code{o2m}, i.e. \code{fit <- o2m(X,Y,n,nx,ny)}
+\itemize{
+  \item{} Use plot(fit) to plot the loadings, see above.
+  \item{} Use \code{\link{loadings}(fit)} to extract a matrix with loading values
+  \item{} Use \code{\link{scores}(fit)} to extract the scores
+  \item{} Use \code{\link{print}} and \code{\link{summary}} to print and summarize the fit object
+}
+}
+
+\section{Imputation}{
+
+When the data contains missing values, one should impute them prior to using O2PLS.
+There are many sophisticated approaches available, such as MICE and MissForest, and no one approach is the best for all situations.
+To still allow users to quickly impute missing values in their data matrix, 
+the \code{\link{impute_matrix}} function is implemented. 
+It relies on the \code{\link{softImpute}} function+package and imputes based on the singular value decomposition.
 }
 
 \section{Misc}{
@@ -67,7 +88,7 @@ Also some handy tools are available
 \itemize{
  \item{} \code{\link{orth}(X)} is a function to obtain an orthogonalized version of a matrix or vector \code{X}.
  \item{} \code{\link{ssq}(X)} is a function to calculate the sum of squares (or squared Frobenius norm) of \code{X}. See also \code{\link{vnorm}} for calculating the norm of each column in \code{X}.
- \item{} \code{\link{mse}(x, y)} returns the mean squared difference between two matrices/vectors. By default \code{y=0}.
+ \item{} \code{\link{mse}(x, y)} returns the mean squared difference between two matrices/vectors. 
 }
 }
 
@@ -75,26 +96,27 @@ Also some handy tools are available
 
 If you use the OmicsPLS R package in your research, please cite the corresponding software paper:
 
-\strong{el Bouhaddani, S., Uh, H. W., Jongbloed, G., Hayward, C., Klarić, L., Kiełbasa, S. M., & Houwing-Duistermaat, J.} (2018).
+\strong{el Bouhaddani, S., Uh, H.-W., Jongbloed, G., Hayward, C., Klarić, L., Kiełbasa, S. M., & Houwing-Duistermaat, J.} (2018).
 \emph{Integrating omics datasets with the OmicsPLS package.}
- BMC Bioinformatics, 19(1). \url{https://doi.org/10.1186/s12859-018-2371-3}
+ BMC Bioinformatics, 19(1). \doi{10.1186/s12859-018-2371-3}
 
 The bibtex entry can be obtained with command \code{citation("OmicsPLS")}.
-Thank You!
+Thank you!
 
 The original paper proposing O2PLS is
 
 \strong{Trygg, J., & Wold, S.} (2003). 
 \emph{O2-PLS, a two-block (X-Y) latent variable regression (LVR) method with an integral OSC filter.} 
-Journal of Chemometrics, 17(1), 53-64. http://doi.org/10.1002/cem.775
+Journal of Chemometrics, 17(1), 53-64. \doi{10.1002/cem.775}
 }
 
 \author{
 Said el Bouhaddani (\email{s.elbouhaddani@umcutrecht.nl}, Twitter: @selbouhaddani),
-Jeanine Houwing-Duistermaat (\email{J.Duistermaat@leeds.ac.uk}),
-Geurt Jongbloed (\email{G.Jongbloed@tudelft.nl}),
-Szymon Kielbasa (\email{S.M.Kielbasa@lumc.nl}),
-Hae-Won Uh (\email{H.W.Uh@umcutrecht.nl}).
+Zhujie Gu, 
+Szymon Kielbasa,
+Geurt Jongbloed,
+Jeanine Houwing-Duistermaat,
+Hae-Won Uh.
 
 Maintainer: Said el Bouhaddani (\email{s.elbouhaddani@umcutrecht.nl}).
 }

@@ -4,9 +4,20 @@
 \alias{crossval_o2m_adjR2}
 \title{Adjusted Cross-validate procedure for O2PLS}
 \usage{
-crossval_o2m_adjR2(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
-  stripped = TRUE, p_thresh = 3000, q_thresh = p_thresh,
-  tol = 1e-10, max_iterations = 100)
+crossval_o2m_adjR2(
+  X,
+  Y,
+  a,
+  ax,
+  ay,
+  nr_folds,
+  nr_cores = 1,
+  stripped = TRUE,
+  p_thresh = 3000,
+  q_thresh = p_thresh,
+  tol = 1e-10,
+  max_iterations = 100
+)
 }
 \arguments{
 \item{X}{Numeric matrix. Vectors will be coerced to matrix with \code{as.matrix} (if this is possible)}
@@ -29,9 +40,9 @@ crossval_o2m_adjR2(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
 
 \item{q_thresh}{Integer. If \code{Y} has more than \code{q_thresh} columns, a power method optimization is used, see \code{\link{o2m2}}}
 
-\item{tol}{double. Threshold for power method iteration}
+\item{tol}{Double. Threshold for which the NIPALS method is deemed converged. Must be positive.}
 
-\item{max_iterations}{Integer, Maximum number of iterations for power method}
+\item{max_iterations}{Integer. Maximum number of iterations for the NIPALS method.}
 }
 \value{
 data.frame with four columns: MSE, n, nx and ny. Each row corresponds to an element in \code{a}.
@@ -40,17 +51,17 @@ data.frame with four columns: MSE, n, nx and ny. Each row corresponds to an elem
 Combines CV with R2 optimization
 }
 \details{
-This is an alternative way of cross-validating. It is proposed in \code{citation(OmicsPLS)}. 
+This is an alternative way of cross-validating. It is proposed in \code{citation(OmicsPLS)}.
 This approach is (much) faster than the standard \code{crossval_o2m} approach and works fine even with two folds.
-For each element in \code{n} it looks for nx and ny that maximize the \eqn{R^2} between T and U in the O2PLS model. 
-This approach often yields similar integer as the standard approach. 
+For each element in \code{n} it looks for nx and ny that maximize the \eqn{R^2} between T and U in the O2PLS model.
+This approach often yields similar integer as the standard approach.
 We however suggest to use the standard approach to minimize the prediction error around the found integers.
 }
 \examples{
 local({
 X = scale(jitter(tcrossprod(rnorm(100),runif(10))))
 Y = scale(jitter(tcrossprod(rnorm(100),runif(10))))
-crossval_o2m_adjR2(X, Y, a = 1:4, ax = 1:2, ay = 1:2, 
+crossval_o2m_adjR2(X, Y, a = 1:4, ax = 1:2, ay = 1:2,
              nr_folds = 5, nr_cores = 1)
 })
 }

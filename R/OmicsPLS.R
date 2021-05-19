@@ -1,15 +1,16 @@
 #' Data integration with O2PLS: Two-Way Orthogonal Partial Least Squares
 #'
-#' OmicsPLS software is described in (el Bouhaddani et al, 2018, BMC Bioinformatics).
-#' This is based on work of (Trygg & Wold, 2003).
-#' Includes the O2PLS fit, some misc functions and some cross-validation tools.
+#' The OmicsPLS package is an R package for penalized integration of heterogeneous omics data. 
+#' The software articles are published in (el Bouhaddani et al, 2018, \doi{10.1186/s12859-018-2371-3}) and (Gu et al, 2020, \doi{10.1186/s12859-021-03958-3}).
+#' OmicsPLS includes the O2PLS fit, the GO2PLS fit, cross-validation tools and some misc functions.
 #' 
 #' @author
 #' Said el Bouhaddani (\email{s.elbouhaddani@@umcutrecht.nl}, Twitter: @@selbouhaddani),
-#' Jeanine Houwing-Duistermaat (\email{J.Duistermaat@@leeds.ac.uk}),
-#' Geurt Jongbloed (\email{G.Jongbloed@@tudelft.nl}),
-#' Szymon Kielbasa (\email{S.M.Kielbasa@@lumc.nl}),
-#' Hae-Won Uh (\email{H.W.Uh@@umcutrecht.nl}).
+#' Zhujie Gu, 
+#' Szymon Kielbasa,
+#' Geurt Jongbloed,
+#' Jeanine Houwing-Duistermaat,
+#' Hae-Won Uh.
 #'
 #' Maintainer: Said el Bouhaddani (\email{s.elbouhaddani@@umcutrecht.nl}).
 #' 
@@ -34,10 +35,11 @@
 #' There are four ways to obtain an O2PLS fit, depending on the dimensionality.
 #' \itemize{
 #'  \item{} For the not-too-high dimensional case, you may use \code{\link{o2m}} with default parameters. E.g. \code{o2m(X,Y,n,nx,ny)}.
-#'  \item{} In case you don't want the fancy output, but only the parameters, you may add \code{stripped = TRUE} to obtain a stripped version of \code{o2m} which avoids calculating and storing some matrices. E.g. \code{o2m(X,Y,n,nx,ny,stripped=TRUE)}.
-#'  \item{} For high dimensional cases defined by \code{ncol(X)>p_thresh} and \code{ncol(Y)>q_thresh} a Power-Method approach is used which avoids storing large matrices. E.g. \code{o2m(X,Y,n,nx,ny,p_thresh=3000,q_thresh=3000)}.
+#'  \item{} In case you only want the parameters, you may add \code{stripped = TRUE} to obtain a stripped version of \code{o2m} which avoids calculating and storing some matrices. E.g. \code{o2m(X,Y,n,nx,ny,stripped=TRUE)}.
+#'  \item{} For high dimensional cases, defined by \code{ncol(X)>p_thresh} and \code{ncol(Y)>q_thresh}, a NIPALS approach is used which avoids storing large matrices. E.g. \code{o2m(X,Y,n,nx,ny,p_thresh=3000,q_thresh=3000)}.
 #'  The thresholds are by default both at 3000 variables.
 #'  \item{} If you want a stripped version in the high dimensional case, add \code{stripped = TRUE}. E.g. \code{o2m(X,Y,n,nx,ny,stripped=TRUE,p_thresh=3000,q_thresh=3000)}.
+#'  \item{} For GO2PLS, add \code{sparsity = TRUE} and specify how many variables or groups to retain. E.g. \code{o2m(X,Y,n,nx,ny,sparse=TRUE,keepx, keepy)}.
 #' }
 #' 
 #' @section Obtaining results:
@@ -51,41 +53,60 @@
 #' See \code{citation("OmicsPLS")} for our proposed approach for determining the number of components, implemented in \code{crossval_o2m_adjR2}!
 #' \itemize{
 #'  \item{} Cross-validation (CV) is done with \code{\link{crossval_o2m}} and \code{\link{crossval_o2m_adjR2}}, both have built in parallelization which relies on the \code{parallel} package.
-#'  Usage is something like \code{crossval_o2m(X,Y,a,ax,ay)} where \code{a,ax,ay} are vectors of integers. See the help pages.
-#'  \code{kcv} is the number of folds, with \code{kcv = nrow(X)} for Leave-One-Out CV. 
+#'  Usage is something like \code{crossval_o2m(X,Y,a,ax,ay,nr_folds)} where \code{a,ax,ay} are vectors of integers. See the help pages.
+#'  \code{nr_folds} is the number of folds, with \code{nr_folds = nrow(X)} for Leave-One-Out CV.
 #'  \item{} For \code{crossval_o2m_adjR2} the same parameters are to be specified. This way of cross-validating is (potentially much)
-#'  faster than the standard approach. 
+#'  faster than the standard approach. It is also recommended over the standard CV.
+#'  \item{} To cross-validate the number of variables to keep, use \code{\link{crossval_sparsity}}. 
 #' }
+#' 
+#' @section S3 methods:
+#' There are S3 methods implemented for a fit obtained with \code{o2m}, i.e. \code{fit <- o2m(X,Y,n,nx,ny)}
+#' \itemize{
+#'   \item{} Use plot(fit) to plot the loadings, see above.
+#'   \item{} Use \code{\link{loadings}(fit)} to extract a matrix with loading values
+#'   \item{} Use \code{\link{scores}(fit)} to extract the scores
+#'   \item{} Use \code{\link{print}} and \code{\link{summary}} to print and summarize the fit object
+#' }
+#' 
+#' @section Imputation:
+#' When the data contains missing values, one should impute them prior to using O2PLS.
+#' There are many sophisticated approaches available, such as MICE and MissForest, and no one approach is the best for all situations.
+#' To still allow users to quickly impute missing values in their data matrix, 
+#' the \code{\link{impute_matrix}} function is implemented. 
+#' It relies on the \code{\link{softImpute}} function+package and imputes based on the singular value decomposition.
 #' 
 #' @section Misc:
 #' Also some handy tools are available
 #' \itemize{
 #'  \item{} \code{\link{orth}(X)} is a function to obtain an orthogonalized version of a matrix or vector \code{X}.
 #'  \item{} \code{\link{ssq}(X)} is a function to calculate the sum of squares (or squared Frobenius norm) of \code{X}. See also \code{\link{vnorm}} for calculating the norm of each column in \code{X}.
-#'  \item{} \code{\link{mse}(x, y)} returns the mean squared difference between two matrices/vectors. By default \code{y=0}.
+#'  \item{} \code{\link{mse}(x, y)} returns the mean squared difference between two matrices/vectors. 
 #' }
 #' 
 #' @section Citation:
 #' If you use the OmicsPLS R package in your research, please cite the corresponding software paper:
 #' 
-#' \strong{el Bouhaddani, S., Uh, H. W., Jongbloed, G., Hayward, C., Klarić, L., Kiełbasa, S. M., & Houwing-Duistermaat, J.} (2018).
+#' \strong{el Bouhaddani, S., Uh, H.-W., Jongbloed, G., Hayward, C., Klarić, L., Kiełbasa, S. M., & Houwing-Duistermaat, J.} (2018).
 #' \emph{Integrating omics datasets with the OmicsPLS package.}
-#'  BMC Bioinformatics, 19(1). \url{https://doi.org/10.1186/s12859-018-2371-3}
+#'  BMC Bioinformatics, 19(1). \doi{10.1186/s12859-018-2371-3}
 #' 
 #' The bibtex entry can be obtained with command \code{citation("OmicsPLS")}.
-#' Thank You!
+#' Thank you!
 #' 
 #' The original paper proposing O2PLS is
 #' 
 #' \strong{Trygg, J., & Wold, S.} (2003). 
 #' \emph{O2-PLS, a two-block (X-Y) latent variable regression (LVR) method with an integral OSC filter.} 
-#' Journal of Chemometrics, 17(1), 53-64. http://doi.org/10.1002/cem.775
+#' Journal of Chemometrics, 17(1), 53-64. \doi{10.1002/cem.775}
 #' 
 #' @docType package
 #' @name OmicsPLS
 #' @keywords OmicsPLS
-#' @import parallel ggplot2 tibble magrittr
+#' @import parallel ggplot2 tibble magrittr softImpute
 #' @importFrom graphics abline
+#' @importFrom stats cov sd
+#' @importFrom dplyr mutate
 NULL
 
 #' Check if matrices satisfy input conditions
@@ -98,21 +119,53 @@ NULL
 #' @keywords internal
 #' @export
 input_checker <- function(X, Y = NULL) {
-  if(!is.numeric(X)) stop("Input is not numeric, but of mode ",mode(X))
-  if(!is.matrix(X)) stop("Input is not a matrix, but of class ",class(X))
-  if(any(is.na(X))) stop("Input contains NA's or NaN's")
-  if(!any(is.finite(X))) stop("Input contains non-finite elements")
+  if(!is.numeric(X)) stop("Input is not numeric, but of mode ",mode(X),"\n")
+  if(!is.matrix(X)) stop("Input is not a matrix, but of class ",class(X),"\n")
+  if(any(is.na(X))) stop("Input contains NA's or NaN's, consider imputing with impute_matrix","\n")
+  if(any(is.infinite(X))) stop("Input contains non-finite elements, consider imputing with impute_matrix","\n")
   
   if (!is.null(Y)) {
-    if(!is.numeric(Y)) stop("Input is not numeric, but of mode ",mode(Y))
-    if(!is.matrix(Y)) stop("Input is not a matrix, but of class ",class(Y))
-    if(any(is.na(Y))) stop("Input contains NA's or NaN's")
-    if(!any(is.finite(Y))) stop("Input contains non-finite elements")
-    if(nrow(X) != nrow(Y)) stop("# rows don't match: ",nrow(X)," versus ",nrow(Y))
-    if(!identical(rownames(X), rownames(Y))) warning("Caution: Rownames don't match!")
+    if(!is.numeric(Y)) stop("Input is not numeric, but of mode ",mode(Y),"\n")
+    if(!is.matrix(Y)) stop("Input is not a matrix, but of class ",class(Y),"\n")
+    if(any(is.na(Y))) stop("Input contains NA's or NaN's, consider imputing with impute_matrix","\n")
+    if(any(is.infinite(Y))) stop("Input contains non-finite elements, consider imputing with impute_matrix","\n")
+    if(nrow(X) != nrow(Y)) stop("# rows don't match: ",nrow(X)," versus ",nrow(Y),"\n")
+    if(!identical(rownames(X), rownames(Y))) warning("Caution: Rownames don't match!","\n")
   }
   NULL
 }
+
+#' Impute missing values in a matrix
+#'
+#' @param X A matrix with missing values in some entries.
+#' @param ... Further arguments for \code{softimpute}.
+#' @return An imputed version of matrix \eqn{X}
+#' @details This function is based on the \code{\link{softImpute}} function in its eponymous package.
+#' @examples
+#' X <- matrix(rnorm(20*100),20)
+#' Xmis <- X
+#' Xmis[sample(length(Xmis),length(Xmis)/10)] <- NA
+#' anyNA(X)
+#' anyNA(impute_matrix(Xmis))
+#' @export
+impute_matrix <- function(X, ...){
+  Xnames = dimnames(X)
+  if(!is.matrix(X)){
+    message("X has class ",class(X),", trying to convert with as.matrix.",sep="","\n")
+    X <- as.matrix(X)
+    dimnames(X) <- Xnames
+  }
+  if(any(is.infinite(X))) X[is.infinite(X)] = NA
+  if(!anyNA(X)){
+    message("X doesn't contain missings. Returning original matrix.","\n")
+    return(X)
+  }
+  
+  imp <- softImpute::softImpute(X, rank.max = min(dim(X),51)-1, 
+                                type="svd", ...)
+  return(softImpute::complete(X, imp))
+}
+
 
 #' Orthogonalize a matrix
 #'
@@ -132,7 +185,7 @@ orth <- function(X, X_true = NULL, type = c("QR", "SVD")) {
   if (!is.null(X_true)) {
     X_true <- as.matrix(X_true)
     input_checker(X,X_true)
-    if(ncol(X) != ncol(X_true)) stop("# columns don't match:",ncol(X),"versus",ncol(X_true))
+    if(ncol(X) != ncol(X_true)) stop("# columns don't match:",ncol(X),"versus",ncol(X_true),"\n")
   }else {
     input_checker(X)
   }
@@ -149,7 +202,7 @@ orth <- function(X, X_true = NULL, type = c("QR", "SVD")) {
   } else {
     sign_e <- sign(crossprod(e,X_true)) * diag(1,ncol(e))
   }
-  if(any(diag(sign_e)==0)){warning("Orthogonalization made some columns orthogonal to original columns")}
+  if(any(diag(sign_e)==0)){warning("Orthogonalization made some columns orthogonal to original columns","\n")}
   
   return(e %*% sign_e)
 }
@@ -182,11 +235,9 @@ ssq <- function(X) {
 #' @export
 mse <- function(x, y = 0, na.rm = FALSE)
 {
-  if(length(x) != length(y) && length(y) != 0) message("Comparing lengths ",length(x)," with ",length(y))
+  if(length(x) != length(y) && length(y) != 0) message("Comparing lengths ",length(x)," with ",length(y),"\n")
   mean((x - y)^2, na.rm = na.rm)
 }
-
-
 
 #' Root MSE of Prediction
 #'
@@ -200,7 +251,7 @@ mse <- function(x, y = 0, na.rm = FALSE)
 #' @return Mean squares difference between predicted Y and true Y
 #' @export
 rmsep <- function(Xtst, Ytst, fit, combi = FALSE) {
-  if(!inherits(fit,"o2m")) stop("fit should be an O2PLS fit")
+  if(!inherits(fit,c("o2m","pre.o2m"))) stop("fit should be an O2PLS fit","\n")
   
   if (!is.matrix(Xtst)) Xtst <- t(Xtst)
   
@@ -222,9 +273,9 @@ rmsep <- function(Xtst, Ytst, fit, combi = FALSE) {
 #' @param a Vector of integers. Contains the numbers of joint components.
 #' @param a2 Vector of integers. Contains the numbers of orthogonal components in \eqn{X}.
 #' @param b2 Vector of integers. Contains the numbers of orthogonal components in \eqn{Y}.
-#' @param fitted_model List. O2PLS model fit with \code{\link{o2m}}. Is used to calculate the apparent error without recalculating this fit.
+#' @param fitted_model List. Deprecated. O2PLS model fit with \code{\link{o2m}}. Is used to calculate the apparent error without recalculating this fit.
 #' @param func Function to fit the O2PLS model with. Only \code{\link{o2m}} and \code{\link{o2m_stripped}} are supported.
-#' @param app_err Logical. Should the apparent error also be computed? Not used anymore.
+#' @param app_err Logical. Deprecated. Should the apparent error also be computed? 
 #' @param kcv Integer. The value of \eqn{k}, i.e. the number of folds. Choose \eqn{N} for LOO-CV.
 #' @details Note that this function can be easily parallelized (on Windows e.g. with the \code{parallel} package.).
 #' @return List with two numeric vectors:
@@ -240,20 +291,21 @@ loocv <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func = o2m
                   q_thresh = p_thresh, tol = 1e-10, max_iterations = 100)
 {
   app_err = F
+  fitted_model = NULL
   stopifnot(all(a == round(a)), all(a2 == round(a2)), all(b2 == round(b2)))
   X = as.matrix(X)
   Y = as.matrix(Y)
   input_checker(X, Y)
-  if (!is.null(fitted_model)) {
-    app_err <- F
-    message("apparent error calculated with provided fit")
-  }
+  # if (!is.null(fitted_model)) {
+  #   app_err <- F
+  #   message("apparent error calculated with provided fit","\n")
+  # }
   # determine type of model
   type <- 3  #ifelse(deparse(substitute(func))=='o2m',3,ifelse(deparse(substitute(func))=='oplsm',2,1))
   
   N <- nrow(X)
   if (N != nrow(Y)) {
-    stop("N not the same")
+    stop("N not the same","\n")
   }
   mean_err <- mean_fit <- NA * 1:max(length(a), length(a2), length(b2))
   k <- 0
@@ -280,24 +332,24 @@ loocv <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func = o2m
           # if(type==1){pars=list(X=X[-i,],Y=Y[-i,],ncomp=j)}
           fit <- try(do.call(func, pars), silent = T)
           err[i] <- ifelse(inherits(fit, "try-error"), NA, rmsep(X[folds[ii], ], Y[folds[ii], ], 
-                                                                fit))
+                                                                 fit))
         }
         mean_err[k] <- mean(err)
         # calculate apparent error
-        if (app_err && is.null(fitted_model)) {
-          if (type == 3) {
-            pars2 <- list(X = X, Y = Y, n = j, nx = j2, ny = j3)
-          }
-          # if(class(fit)=='oplsm'){pars2=list(X=X,Y=Y,ncomp=j,n_orth=j2)}
-          # if(class(fit)=='plsm'){pars2=list(X=X,Y=Y,ncomp=j)}
-          fit2 <- try(do.call(func, pars2), F)
-          mean_fit[k] <- ifelse(inherits(fit, "try-error"), NA, rmsep(X, Y, fit2))
-          # print('1e loop')
-        }
-        if (!is.null(fitted_model)) {
-          mean_fit[k] <- rmsep(X, Y, fitted_model)
-          # print('2e loop')
-        }
+        # if (app_err && is.null(fitted_model)) {
+        #   if (type == 3) {
+        #     pars2 <- list(X = X, Y = Y, n = j, nx = j2, ny = j3)
+        #   }
+        #   # if(class(fit)=='oplsm'){pars2=list(X=X,Y=Y,ncomp=j,n_orth=j2)}
+        #   # if(class(fit)=='plsm'){pars2=list(X=X,Y=Y,ncomp=j)}
+        #   fit2 <- try(do.call(func, pars2), F)
+        #   mean_fit[k] <- ifelse(inherits(fit, "try-error"), NA, rmsep(X, Y, fit2))
+        #   # print('1e loop')
+        # }
+        # if (!is.null(fitted_model)) {
+        #   mean_fit[k] <- rmsep(X, Y, fitted_model)
+        #   # print('2e loop')
+        # }
       }
     }
   }
@@ -355,13 +407,22 @@ adjR2 <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, func = o2m, parall = F, cl = NU
   # cl <- makeCluster(rep( 'localhost', detectCores()),type='SOCK') clusterExport(cl=cl,
   # varlist=c('X','Y','N','pars2','ssq','o2m'))
   outp <- S_apply(cl, pars2, function(p) {
-    fit <- func(X, Y, p$a, p$a2, p$b2, stripped = stripped, p_thresh = p_thresh, 
-                q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)
-    RX <- 1 - ssq(fit$H_UT)/ssq(fit$U)
-    RY <- 1 - ssq(fit$H_TU)/ssq(fit$Tt)
-    adjRX <- RX  #1 - (1 - RX)*(N - 1)/(N - p$a - 1)
-    adjRY <- RY  #1 - (1 - RY)*(N - 1)/(N - p$a - 1)
-    return(c(adjR2X = adjRX, adjR2Y = adjRY))
+    fit <- try(func(X, Y, p$a, p$a2, p$b2, stripped = stripped, p_thresh = p_thresh, 
+                    q_thresh = q_thresh, tol = tol, max_iterations = max_iterations), silent=T)
+    if(inherits(fit,'try-error')) {
+      if(!grepl("exceeds #columns in X or Y", fit)){
+        warning(fit[1])
+      }
+    }
+    if(!inherits(fit, 'try-error')){
+      RX <- 1 - ssq(fit$H_UT)/ssq(fit$U)
+      RY <- 1 - ssq(fit$H_TU)/ssq(fit$Tt)
+      adjRX <- RX  #1 - (1 - RX)*(N - 1)/(N - p$a - 1)
+      adjRY <- RY  #1 - (1 - RY)*(N - 1)/(N - p$a - 1)
+      return(c(adjR2X = adjRX, adjR2Y = adjRY))
+    } else {
+      return(c(adjR2X = NA, adjR2Y = NA))
+    }
   })
   if (parall & cl_was_null == TRUE) {
     stopCluster(cl)
@@ -399,14 +460,14 @@ vnorm <- function(x)
 #' @export
 rmsep_combi <- function(Xtst, Ytst, fit)
 {
-  if(!inherits(fit,"o2m")) stop("fit should be an O2PLS fit")
+  if(!inherits(fit,c("o2m","pre.o2m"))) stop("fit should be an O2PLS fit","\n")
   
   if (!is.matrix(Xtst)) Xtst <- t(Xtst)
   
   if (!is.matrix(Ytst)) Ytst <- t(Ytst)
   
   input_checker(Xtst, Ytst)
-
+  
   Yhat <- (Xtst - Xtst %*% fit$W_Yosc %*% t(fit$W_Yosc)) %*% fit$W. %*% fit$B_T %*% t(fit$C.)
   Xhat <- (Ytst - Ytst %*% fit$C_Xosc %*% t(fit$C_Xosc)) %*% fit$C. %*% fit$B_U %*% t(fit$W.)
   
@@ -430,18 +491,19 @@ loocv_combi <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func
                         q_thresh = p_thresh, tol = 1e-10, max_iterations = 100)
 {
   app_err = F
+  fitted_model = NULL
   stopifnot(all(a == round(a)), all(a2 == round(a2)), all(b2 == round(b2)), kcv == round(kcv[1]))
   stopifnot(is.logical(app_err), is.function(func))
   X = as.matrix(X)
   Y = as.matrix(Y)
   input_checker(X, Y)
-  if (!is.null(fitted_model)) {
-    if(inherits(fitted_model,'o2m')){stop("fitted_model should be of class 'o2m' or NULL")}
-    app_err <- F
-    warning("apparent error calculated with provided fit")
-  }
+  # if (!is.null(fitted_model)) {
+  #   if(inherits(fitted_model,c("o2m","pre.o2m"))){stop("fitted_model should be of class 'o2m' or NULL","\n")}
+  #   app_err <- F
+  #   message("apparent error calculated with provided fit")
+  # }
   
-  # determine type of model
+  # determine type of model, deprecated 
   type <- 3  #ifelse(deparse(substitute(func))=='o2m',3,ifelse(deparse(substitute(func))=='oplsm',2,1))
   
   N <- length(X[, 1])
@@ -471,31 +533,35 @@ loocv_combi <- function(X, Y, a = 1:2, a2 = 1, b2 = 1, fitted_model = NULL, func
                          q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)
           }
           fit <- try(do.call(func, pars), silent = T)
-          if(inherits(fit,'try-error')) warning(fit[1])
+          if(inherits(fit,'try-error')) {
+            if(!grepl("exceeds #columns in X or Y", fit)){
+              warning(fit[1])
+            }
+          }
           err[i] <- ifelse(inherits(fit, 'try-error'), 
                            NA, 
                            rmsep_combi(X[folds[ii], ], Y[folds[ii], ], fit))
         }
         mean_err[k] <- mean(err)
         # calculate apparent error
-        if (app_err && is.null(fitted_model)) {
-          if (inherits(fit,'o2m')) {
-            pars2 <- list(X = X, Y = Y, n = j, nx = j2, ny = j3)
-          }
-          # if (class(fit) == "oplsm") {
-          #   pars2 <- list(X = X, Y = Y, ncomp = j, n_orth = j2)
-          # }
-          # if (class(fit) == "plsm") {
-          #   pars2 <- list(X = X, Y = Y, ncomp = j)
-          # }
-          fit2 <- try(do.call(func, pars2), F)
-          mean_fit[k] <- ifelse(inherits(fit,"try-error"), NA, rmsep_combi(X, Y, fit2))
-          print("1e loop")
-        }
-        if (!is.null(fitted_model)) {
-          mean_fit[k] <- rmsep_combi(X, Y, fitted_model)
-          print("2e loop")
-        }
+        # if (app_err && is.null(fitted_model)) {
+        #   if (inherits(fit,c("o2m","pre.o2m"))) {
+        #     pars2 <- list(X = X, Y = Y, n = j, nx = j2, ny = j3)
+        #   }
+        #   # if (class(fit) == "oplsm") {
+        #   #   pars2 <- list(X = X, Y = Y, ncomp = j, n_orth = j2)
+        #   # }
+        #   # if (class(fit) == "plsm") {
+        #   #   pars2 <- list(X = X, Y = Y, ncomp = j)
+        #   # }
+        #   fit2 <- try(do.call(func, pars2), F)
+        #   mean_fit[k] <- ifelse(inherits(fit,"try-error"), NA, rmsep_combi(X, Y, fit2))
+        #   print("1e loop")
+        # }
+        # if (!is.null(fitted_model)) {
+        #   mean_fit[k] <- rmsep_combi(X, Y, fitted_model)
+        #   print("2e loop")
+        # }
       }
     }
   }
@@ -523,13 +589,32 @@ print.o2m <- function (x, ...) {
   n = x$flags$n #ncol(x$W.)
   nx = x$flags$nx #ifelse(vnorm(x$P_Yosc.)[1] == 0, 0, ncol(x$P_Yosc.))
   ny = x$flags$ny #ifelse(vnorm(x$P_Xosc.)[1] == 0, 0, ncol(x$P_Xosc.))
-  if(x$flags$stripped) cat("O2PLS fit: Stripped \n") 
+  if(x$flags$method == "SO2PLS") cat("SO2PLS fit \n")
+  else if(x$flags$method == "GO2PLS") cat("GO2PLS fit \n")
+  else{
+    if(x$flags$stripped) cat("O2PLS fit: Stripped \n") 
     else if(x$flags$highd) cat("O2PLS fit: High dimensional \n") 
-      else cat("O2PLS fit \n")
+    else cat("O2PLS fit \n")
+  }
+
   cat("with ",n," joint components  \n",sep='')
   cat("and  ",nx," orthogonal components in X \n",sep='')
   cat("and  ",ny," orthogonal components in Y \n",sep='')
-  cat("Elapsed time: ",x$flags$time, " sec", sep='')
+  cat("Elapsed time: ",x$flags$time, " sec\n\n", sep='')
+}
+
+#' Print function for O2PLS.
+#' 
+#' This function is the print method for an O2PLS fit
+#' 
+#' @param x An O2PLS fit (an object of class o2m)
+#' @param ... For consistency
+#' @return NULL
+#'
+#'
+#' @export
+print.pre.o2m <- function (x, ...) {
+  cat("Internal function used to fit O2PLS, use o2m to enable print, plot, etc \n")
 }
 
 
@@ -538,7 +623,7 @@ print.o2m <- function (x, ...) {
 #' This function plots one or two loading vectors, by default with ggplot2. 
 #' 
 #' @param x An O2PLS fit, with class 'o2m'
-#' @param loading_name character string. One of the following: 'Xjoint', 'Yjoint', 'Xorth' or 'Yorth'.
+#' @param loading_name character string. One of the following: 'Xjoint', 'Yjoint', 'gr_Xjoint', 'gr_Yjoint', 'Xorth' or 'Yorth'.
 #' @param i Integer. First component to be plotted.
 #' @param j NULL (default) or Integer. Second component to be plotted.
 #' @param use_ggplot2 Logical. Default is \code{TRUE}. If \code{FALSE}, the usual plot device will be used.
@@ -550,13 +635,16 @@ print.o2m <- function (x, ...) {
 #' @seealso \code{\link{summary.o2m}}
 #' 
 #' @export
-plot.o2m <- function (x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth"), i = 1, j = NULL, use_ggplot2=TRUE, label = c("number", "colnames"), ...)
+plot.o2m <- function (x, loading_name = c("Xjoint", "Yjoint", "gr_Xjoint", "gr_Yjoint", "Xorth", "Yorth"), i = 1, j = NULL, use_ggplot2=TRUE, label = c("number", "colnames"), ...)
 {
   stopifnot(i == round(i), is.logical(use_ggplot2))
   
   fit <- list()
   loading_name = match.arg(loading_name)
-  which_load = switch(loading_name, Xjoint = "W.", Yjoint = "C.", Xorth = "P_Yosc.", Yorth = "P_Xosc.")
+  if((loading_name %in% c("gr_Xjoint", "gr_Yjoint")) & x$flags$method != "GO2PLS") stop("Loading plots at group level only available in GO2PLS")
+  
+  which_load = switch(loading_name, Xjoint = "W.", Yjoint = "C.", 
+                      gr_Xjoint = "W_gr", gr_Yjoint = "C_gr", Xorth = "P_Yosc.", Yorth = "P_Xosc.")
   fit$load = as.matrix(x[which_load][[1]])
   if(ncol(fit$load) < max(i,j) )
     stop("i and j cannot exceed #components = ",ncol(fit$load))
@@ -574,8 +662,8 @@ plot.o2m <- function (x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth"),
   label2 = match.arg(label)
   if(label2 == "colnames" && !is.null(rownames(x[which_load][[1]]))) {
     label = rownames(x[which_load][[1]])
-    } else label = 1:p
-  if(label2 == "colnames" && is.null(rownames(x[which_load][[1]]))) message("No labels found in colnames, proceeding...")
+  } else label = 1:p
+  if(label2 == "colnames" && is.null(rownames(x[which_load][[1]]))) message("No labels found in colnames, proceeding...","\n")
   
   if (use_ggplot2) {
     plt = with(fit, {
@@ -613,7 +701,7 @@ plot.o2m <- function (x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth"),
 summary.o2m <- function(object, digits = 3, ...) {
   fit <- object
   a <- ncol(fit$W.)
-  if(digits != round(digits) || digits <= 0) stop("digits must be a positive integer")
+  if(digits != round(digits) || digits <= 0) stop("Digits must be a positive integer","\n")
   outp <- with( fit, list(
     Comp = a,
     R2_X = R2X,
@@ -649,7 +737,8 @@ summary.o2m <- function(object, digits = 3, ...) {
 #' @export
 print.summary.o2m <- function(x, ...){
   digits = x$digits
-  cat("\n*** Summary of the O2PLS fit *** \n\n")
+  method = x$flags$method
+  cat(paste("\n*** Summary of the", method, "fit *** \n\n"))
   R2_names = c("Joint","Orthogonal","Noise")
   R2_Xall = with(x,{c(R2_Xjoint, R2_X - R2_Xjoint, 1 - R2_X)})
   R2_Yall = with(x,{c(R2_Yjoint, R2_Y - R2_Yjoint, 1 - R2_Y)})
@@ -722,23 +811,26 @@ print.summary.o2m <- function(x, ...){
 loadings <- function(x, ...) UseMethod("loadings")
 
 
-#' @param loading_name character string. One of the following: 'Xjoint', 'Yjoint', 'Xorth' or 'Yorth'.
+#' @param loading_name character string. One of the following: 'Xjoint', 'Yjoint', 'gr_Xjoint', 'gr_Yjoint', 'Xorth' or 'Yorth'.
 #' @param subset subset of loading vectors to be extracted.
 #' @param sorted Logical. Should the rows of the loadings be sorted according to the 
 #' absolute magnitute of the first column?
 #' 
 #' @rdname loadings
 #' @export
-loadings.o2m <- function(x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth"), 
+loadings.o2m <- function(x, loading_name = c("Xjoint", "Yjoint", "gr_Xjoint", "gr_Yjoint", "Xorth", "Yorth"), 
                          subset = 0, sorted = FALSE, ...) {
-  if(any(subset != abs(round(subset)))) stop("subset must be a vector of non-negative integers")
+  if(any(subset != abs(round(subset)))) stop("Subset must be a vector of non-negative integers","\n")
   
   loading_name = match.arg(loading_name)
-  which_load = switch(loading_name, Xjoint = "W.", Yjoint = "C.", Xorth = "P_Yosc.", Yorth = "P_Xosc.")
+  if((loading_name %in% c("gr_Xjoint", "gr_Yjoint")) & x$flags$method != "GO2PLS") stop("Loading plots at group level only available in GO2PLS")
+  
+  which_load = switch(loading_name, Xjoint = "W.", Yjoint = "C.", 
+                      gr_Xjoint = "W_gr", gr_Yjoint = "C_gr", Xorth = "P_Yosc.", Yorth = "P_Xosc.")
   loading_matrix = x[[which_load]]
   dim_names = dimnames(loading_matrix)
   if(length(subset) == 1 && subset == 0) subset = 1:ncol(loading_matrix)
-  if(max(subset) > ncol(loading_matrix)) stop("Elements in subset exceed #components")
+  if(max(subset) > ncol(loading_matrix)) stop("Elements in subset exceed #components","\n")
   loading_matrix = as.matrix(loading_matrix[,subset])
   dimnames(loading_matrix) <- dim_names
   
@@ -768,7 +860,7 @@ loadings.o2m <- function(x, loading_name = c("Xjoint", "Yjoint", "Xorth", "Yorth
 scores <- function(x, ...) UseMethod("scores")
 
 
-#' @inheritParams scores
+#' @param x Object of class \code{o2m}
 #' @param which_part character string. One of the following: 'Xjoint', 'Yjoint', 'Xorth' or 'Yorth'.
 #' @param subset subset of scores vectors to be extracted.
 #' 
@@ -777,14 +869,14 @@ scores <- function(x, ...) UseMethod("scores")
 #' @export
 scores.o2m <- function(x, which_part = c("Xjoint", "Yjoint", "Xorth", "Yorth"), 
                          subset = 0, ...) {
-  if(any(subset != abs(round(subset)))) stop("subset must be a vector of non-negative integers")
+  if(any(subset != abs(round(subset)))) stop("Subset must be a vector of non-negative integers","\n")
   
   which_part = match.arg(which_part)
-  which_scores = switch(which_part, Xjoint = "Tt", Yjoint = "U", Xorth = "T_Yosc.", Yorth = "U_Xosc.")
+  which_scores = switch(which_part, Xjoint = "Tt", Yjoint = "U", Xorth = "T_Yosc", Yorth = "U_Xosc")
   scores_matrix = x[[which_scores]]
   dim_names = dimnames(scores_matrix)
   if(length(subset) == 1 && subset == 0) subset = 1:ncol(scores_matrix)
-  if(max(subset) > ncol(scores_matrix)) stop("Elements in subset exceed #components")
+  if(max(subset) > ncol(scores_matrix)) stop("Elements in subset exceed #components","\n")
   scores_matrix = as.matrix(scores_matrix[,subset])
   dimnames(scores_matrix) <- dim_names
   
@@ -810,18 +902,257 @@ predict.o2m <- function(object, newdata, XorY = c("X","Y"), ...) {
   XorY = match.arg(XorY)
   Xnames = dimnames(newdata)
   if(!is.matrix(newdata)){
-    message("newdata has class ",class(newdata),", trying to convert with as.matrix.",sep="")
+    message("newdata has class ",class(newdata),", trying to convert with as.matrix.",sep="","\n")
     newdata <- as.matrix(newdata)
     dimnames(newdata) <- Xnames
   }
   input_checker(newdata)
   switch(XorY,
-         X = if(ncol(newdata) != nrow(object$W.)) stop("Number of columns mismatch!"),
-         Y = if(ncol(newdata) != nrow(object$C.)) stop("Number of columns mismatch!"))
+         X = if(ncol(newdata) != nrow(object$W.)) stop("Number of columns mismatch!","\n"),
+         Y = if(ncol(newdata) != nrow(object$C.)) stop("Number of columns mismatch!","\n"))
   
   pred = switch(XorY, 
-                Y = with(object, (newdata - newdata %*% C_Xosc %*% t(C_Xosc)) %*% C. %*% B_U %*% t(W.)), 
-                X = with(object, (newdata - newdata %*% W_Yosc %*% t(W_Yosc)) %*% W. %*% B_T. %*% t(C.)))
+                Y = with(object, (newdata - newdata %*% C_Xosc %*% t(P_Xosc.)) %*% C. %*% B_U %*% t(W.)), 
+                X = with(object, (newdata - newdata %*% W_Yosc %*% t(P_Yosc.)) %*% W. %*% B_T. %*% t(C.)))
   
   return(pred)
 }
+
+
+# Penalized -------------------------------------------------
+
+#' Check if penalization parameters satisfy input conditions
+#' 
+#' @param x Should be numeric matrix.
+#' @param y Should be numeric matrix.
+#' @param keepx Input of \code{o2m} function.
+#' @param keepy Input of \code{o2m} function.
+#' @param n Number of joint components.
+#' 
+#' @return NULL
+#' @details This function throws an error if lambda is not within the range.
+#' 
+#' @keywords internal
+#' @export
+lambda_checker <- function(x,y,keepx, keepy,n) {
+  if(all(is.null(keepx), is.null(keepy))) stop("Please specify 'keepx' and 'keepy'. Otherwise please set 'sparsity' to FALSE\n")
+  if(any(is.null(keepx), is.null(keepy))){
+    if(is.null(keepx)){
+      keepx = ncol(x)
+      message("'keepx' not specified, sparsity not imposed for X\n")
+    }else{
+      keepy = ncol(y)
+      message("'keepy' not specified, sparsity not imposed for Y\n")
+    }
+  }
+  bl_x <- !sapply(keepx, is.numeric)
+  bl_y <- !sapply(keepy, is.numeric)
+  if(!length(keepx) %in% c(1,n)) stop("length of 'keepx' must be equal to 1 or number of joint components","\n")
+  if(!length(keepy) %in% c(1,n)) stop("length of 'keepy' must be equal to 1 or number of joint components","\n")
+  if(any(c(bl_x, bl_y)))  stop("Input of keepx, keepy must be of type numeric","\n")
+  if(any(c(keepx<=0, keepy<=0)))  stop("Input of keepx, keepy must be positive","\n")
+  if(max(keepx) > dim(x)[2])  stop("keepx must be less then the number of column of X","\n")
+  if(max(keepy) > dim(y)[2])  stop("keepx must be less then the number of column of Y","\n")
+  if(length(keepx)==1){keepx <- rep(keepx,n)}
+  if(length(keepy)==1){keepy <- rep(keepy,n)}
+  return(list(keepx=keepx, keepy=keepy))
+}
+
+#' Check if penalization parameters for groups satisfy input conditions
+#' 
+#' @param groupx Vector. Input of \code{o2m} function.
+#' @param groupy Vector. Input of \code{o2m} function.
+#' @param keepx Input of \code{o2m} function or \code{crossval_sparsity} function.
+#' @param keepy Input of \code{o2m} function or \code{crossval_sparsity} function.
+#' @param n Number of joint components.
+#'
+#' @return NULL
+#' @details This function throws an error if lambda is not within the range.
+#' 
+#' @keywords internal
+#' @export
+lambda_checker_group <- function(groupx, groupy, keepx, keepy, n) {
+  if(all(is.null(keepx), is.null(keepy))) stop("Please specify 'keepx' and 'keepy'. Otherwise please set 'sparsity' to FALSE and run O2PLS","\n")
+  if(any(is.null(keepx), is.null(keepy))){
+    if(is.null(keepx)){
+      keepx = length(unique(groupx))
+      message("'keepx' not specified, sparsity not imposed in X","\n")
+    }else{
+      keepy = length(unique(groupy))
+      message("'keepy' not specified, sparsity not imposed in Y","\n")
+    }
+  }
+  bl_x <- !sapply(keepx, is.numeric)
+  bl_y <- !sapply(keepy, is.numeric)
+  if(any(c(bl_x, bl_y)))  stop("Input of keepx, keepy must be positive numbers","\n")
+  if(any(c(keepx<=0, keepy<=0)))  stop("Input of keepx, keepy must be positive","\n")
+  if(max(keepx) > length(unique(groupx)))  stop("keepx must not exceed the number of groups in X","\n")
+  if(max(keepy) > length(unique(groupy)))  stop("keepy must not exceed the number of groups in Y","\n")
+  if(length(keepx)==1){keepx <- rep(keepx,n)}
+  if(length(keepy)==1){keepy <- rep(keepy,n)}
+  return(list(keepx=keepx, keepy=keepy))
+}
+
+#' Check if sparsity parameters satisfy input conditions in cross-validation functions
+#' 
+#' @param x Should be numeric matrix.
+#' @param y Should be numeric matrix.
+#' @param keepx_seq Input of \code{crossval_sparsity} function.
+#' @param keepy_seq Input of \code{crossval_sparsity} function.
+#' 
+#' @return NULL
+#' @details This function throws an error if sparsity parameters are not valid.
+#' 
+#' @keywords internal
+#' @export
+cv_lambda_checker <- function(x,y,keepx_seq=NULL, keepy_seq=NULL) {
+  if(all(is.null(keepx_seq), is.null(keepy_seq))) stop("Please specify at least one of 'keepx_seq' and 'keepy_seq'","\n")
+  bl_x <- !sapply(keepx_seq, is.numeric)
+  bl_y <- !sapply(keepy_seq, is.numeric)
+  if(any(c(bl_x, bl_y)))  stop("Input of keepx_seq, keepy_seq must all be positive numbers","\n")
+  if(any(c(keepx_seq<=0, keepy_seq<=0)))  stop("Input of keepx_seq, keepy_seq must all be positive","\n")
+  if(max(keepx_seq) > dim(x)[2])  stop("all numbers in keepx_seq must be less then the number of column of X","\n")
+  if(max(keepy_seq) > dim(y)[2])  stop("all numbers in keepy_seq must be less then the number of column of Y","\n")
+}
+
+#' Check if sparsity parameters satisfy input conditions in cross-validation functions
+#' 
+#' @param groupx Vector. Input of \code{crossval_sparsity} function.
+#' @param groupy Vector. Input of \code{crossval_sparsity} function.
+#' @param keepx_seq Input of \code{crossval_sparsity} function.
+#' @param keepy_seq Input of \code{crossval_sparsity} function.
+#' 
+#' @return NULL
+#' @details This function throws an error if sparsity parameters are not valid.
+#' 
+#' @keywords internal
+#' @export
+cv_lambda_checker_group <- function(groupx,groupy,keepx_seq=NULL, keepy_seq=NULL) {
+  if(any(is.null(keepx_seq), is.null(keepy_seq))) stop("Please specify 'keepx_seq' and 'keepy_seq'","\n")
+  bl_x <- !sapply(keepx_seq, is.numeric)
+  bl_y <- !sapply(keepy_seq, is.numeric)
+  if(any(c(bl_x, bl_y)))  stop("Input of keepx_seq, keepy_seq must all be positive numbers","\n")
+  if(any(c(keepx_seq<=0, keepy_seq<=0)))  stop("Input of keepx_seq, keepy_seq must all be positive","\n")
+  if(max(keepx_seq) > length(unique(groupx)))  stop("all numbers in keepx_seq must be less then the number of groups in X","\n")
+  if(max(keepy_seq) > length(unique(groupy)))  stop("all numbers in keepy_seq must be less then the number of groups in Y","\n")
+}
+
+#' Soft threshholding a vector with respect to a number of variables
+#'
+#' @param x Numerical vector
+#' @param keepx How many non-zero
+#' @return Soft-thresholded vector
+#'
+#' @export
+#' 
+thresh_n <- function (x, keepx){
+  nx <- length(x) - keepx
+  if (nx != 0) {
+    absa = abs(x)
+    if (any(rank(absa, ties.method = "max") <= nx)) {
+      x = ifelse(rank(absa, ties.method = "max") <= nx, 
+                 0, sign(x) * (absa - max(absa[rank(absa, ties.method = "max") <= 
+                                                 nx])))
+    }
+  }
+  x
+}
+
+#' Soft threshholding a vector with respect to a number of groups
+#'
+#' @param w Numerical loading vector 
+#' @param keep_gr How many groups to retain
+#' @param index_gr List of index and size. index are the index of variables belongs to the group in the original vector, size is the group size
+#' @return A list containing sparse loading vector and names of the selected groups
+#'
+#' @export
+#' 
+thresh_n_gr <- function (w, keep_gr, index_gr){
+  nr <- length(index_gr)
+  # each group l2 norm
+  gr_norm <- sapply(1:nr, function(j){
+    wj <- w[index_gr[[j]]$index] 
+    normj <- norm_vec(wj)
+    return(normj)
+  })
+  
+  # find weights for each group
+  # first sorted critical lambda value for each group
+  size <- sapply(index_gr, function(e) e$size)
+  lambda_seq <- (gr_norm/sqrt(size)) %>% sort(decreasing = T)
+  if(keep_gr == nr){
+    lambda <- 0
+  }else{
+    lambda <- lambda_seq[keep_gr+1]
+  }
+  coef_seq <- (gr_norm - sqrt(size)*lambda)/gr_norm
+  coef_seq[coef_seq < 0] <- 0
+  
+  for(j in 1:nr){
+    w[index_gr[[j]]$index] <- coef_seq[j] * w[index_gr[[j]]$index]
+  }
+  
+  select_gr <- names(index_gr)[which(coef_seq > 0)]
+  return(list(w = w, select_gr = select_gr))
+}
+
+
+#' Norm of a vector
+#'
+#' @param x Numerical vector
+#' @return L2 norm of a vector
+#' @export
+norm_vec <- function(x) sqrt(
+  sum(x^2))
+
+#' Orthogonalize a sparse loading vector with regard to a matrix
+#'
+#' @param x sparse loading vector to be orthogonalized
+#' @param W sparse loading matrix of the previous loading vectors
+#' @return A sparse loading vector
+#' @export
+orth_vec <- function(x, W){
+  # get non-zero positions in x and subset W
+  W %<>% as.matrix
+  l <- length(x)
+  pos <- which(x!=0)
+  x <- x[pos]
+  W <- W[pos, ,drop = F]
+  # First check if W is already 0
+  # Step1: delete row i if ith row in W contain all 0
+  # Step2: delete column j in W if it contains all 0
+  # this makes sure W'W is invertible (expect when W ncol > nrow)
+  if(all(W == 0)){
+    x_orth <- x
+    # print('all 0')
+  }else{
+    # Step1
+    #print(W)
+    rowi <- sapply(1:nrow(W), function(i) any(W[i, ]!=0)) %>% which
+    W <- W[rowi, ,drop = F]
+    x_sub <- x[rowi]  # x_sub = x_original[pos[rowi]]
+    # Step2
+    colj <- sapply(1:ncol(W), function(j) any(W[ ,j]!=0)) %>% which
+    W <- W[,colj,drop = F]
+    
+    # when W ncol > nrow, W is singular
+    if(ncol(W)>nrow(W)){
+      x_sub <- rep(0, length(x_sub))
+      #print("ncol > nrow")
+    }else{
+      # Orthogonal projection
+      n <- nrow(W)
+      I <- diag(1, n)
+      #print(W)
+      x_sub <- (I - W %*% solve(t(W)%*%W) %*% t(W)) %*% x_sub
+    }
+    
+    x[rowi] <- x_sub
+    x_orth <- x
+  }
+  x_orth <- x_orth/norm_vec(x_orth)
+  final <- rep(0, l)
+  final[pos] <- x_orth
+  return(final)
+}
+

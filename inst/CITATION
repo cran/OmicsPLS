@@ -1,4 +1,4 @@
-citHeader("To cite O2PLS in publications, please use:")
+citHeader("To cite OmicsPLS in publications, please use:")
 
 citEntry(entry = "article",
   author="el Bouhaddani, Said and Uh, Hae Won and Jongbloed, Geurt and Hayward, Caroline and Klari{\'{c}}, Lucija and Kielbasa, Szymon M. and Houwing-Duistermaat, Jeanine",

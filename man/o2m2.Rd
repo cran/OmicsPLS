@@ -4,15 +4,14 @@
 \alias{o2m2}
 \title{Perform O2-PLS with two-way orthogonal corrections}
 \usage{
-o2m2(X, Y, n, nx, ny, stripped = FALSE, tol = 1e-10,
-  max_iterations = 100)
+o2m2(X, Y, n, nx, ny, stripped = TRUE, tol = 1e-10, max_iterations = 100)
 }
 \arguments{
 \item{X}{Numeric matrix. Vectors will be coerced to matrix with \code{as.matrix} (if this is possible)}
 
 \item{Y}{Numeric matrix. Vectors will be coerced to matrix with \code{as.matrix} (if this is possible)}
 
-\item{n}{Integer. Number of joint PLS components. Must be positive!}
+\item{n}{Integer. Number of joint PLS components. Must be positive.}
 
 \item{nx}{Integer. Number of orthogonal components in \eqn{X}. Negative values are interpreted as 0}
 
@@ -20,9 +19,9 @@ o2m2(X, Y, n, nx, ny, stripped = FALSE, tol = 1e-10,
 
 \item{stripped}{Logical. Use the stripped version of o2m (usually when cross-validating)?}
 
-\item{tol}{double. Threshold for power method iteration}
+\item{tol}{Double. Threshold for which the NIPALS method is deemed converged. Must be positive.}
 
-\item{max_iterations}{Integer, Maximum number of iterations for power method}
+\item{max_iterations}{Integer. Maximum number of iterations for the NIPALS method.}
 }
 \value{
 A list containing
@@ -58,7 +57,8 @@ NOTE THAT THIS FUNCTION DOES NOT CENTER NOR SCALES THE MATRICES! Any normalizati
 }
 \details{
 If both \code{nx} and \code{ny} are zero, \code{o2m2} is equivalent to PLS2 with orthonormal loadings.
-This is a `slower' implementation of O2PLS, and is using \code{\link{svd}}. For cross-validation purposes, consider using \code{\link{o2m_stripped}}.
+For cross-validation purposes, consider using \code{stripped = TRUE}.
+
 Note that in this function, a power-method based approach is used when the data dimensionality is larger than the sample size. E.g. for genomic data the covariance matrix might be too memory expensive.
 }
 \examples{
@@ -75,6 +75,6 @@ system.time(
 
 }
 \seealso{
-\code{\link{o2m}}, \code{\link{ssq}}, \code{\link{summary.o2m}}
+\code{\link{o2m}}
 }
 \keyword{internal}

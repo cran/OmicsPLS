@@ -4,9 +4,20 @@
 \alias{crossval_o2m}
 \title{Cross-validate procedure for O2PLS}
 \usage{
-crossval_o2m(X, Y, a, ax, ay, nr_folds, nr_cores = 1, stripped = TRUE,
-  p_thresh = 3000, q_thresh = p_thresh, tol = 1e-10,
-  max_iterations = 100)
+crossval_o2m(
+  X,
+  Y,
+  a,
+  ax,
+  ay,
+  nr_folds,
+  nr_cores = 1,
+  stripped = TRUE,
+  p_thresh = 3000,
+  q_thresh = p_thresh,
+  tol = 1e-10,
+  max_iterations = 100
+)
 }
 \arguments{
 \item{X}{Numeric matrix. Vectors will be coerced to matrix with \code{as.matrix} (if this is possible)}
@@ -29,9 +40,9 @@ crossval_o2m(X, Y, a, ax, ay, nr_folds, nr_cores = 1, stripped = TRUE,
 
 \item{q_thresh}{Integer. If \code{Y} has more than \code{q_thresh} columns, a power method optimization is used, see \code{\link{o2m2}}}
 
-\item{tol}{double. Threshold for power method iteration}
+\item{tol}{Double. Threshold for which the NIPALS method is deemed converged. Must be positive.}
 
-\item{max_iterations}{Integer, Maximum number of iterations for power method}
+\item{max_iterations}{Integer. Maximum number of iterations for the NIPALS method.}
 }
 \value{
 List of class \code{"cvo2m"} with the original and sorted Prediction errors and the number of folds used.
@@ -43,13 +54,13 @@ Cross-validate procedure for O2PLS
 This is the standard CV approach. It minimizes the sum of the prediction errors of X and Y over a three-dimensional grid of integers.
 Parallelization is possible on all platforms. On Windows it uses \code{\link{makePSOCKcluster}}, then exports all necessary objects to the workers,
  and then calls \code{\link{parLapply}}. On OSX and Linux the more friendly \code{\link{mclapply}} is used, which uses forking.
- A print method is defined, printing the minimizers and minimum in a readible way. Also the elapsed time is tracked and reported.
+ A print method is defined, printing the minimizers and minimum in a readable way. Also the elapsed time is tracked and reported.
 }
 \examples{
 local({
 X = scale(jitter(tcrossprod(rnorm(100),runif(10))))
 Y = scale(jitter(tcrossprod(rnorm(100),runif(10))))
-crossval_o2m(X, Y, a = 1:4, ax = 1:2, ay = 1:2, 
+crossval_o2m(X, Y, a = 1:4, ax = 1:2, ay = 1:2,
              nr_folds = 5, nr_cores = 1)
 })
 
