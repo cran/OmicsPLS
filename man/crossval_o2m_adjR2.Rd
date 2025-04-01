@@ -14,6 +14,7 @@ crossval_o2m_adjR2(
   nr_cores = 1,
   stripped = TRUE,
   p_thresh = 3000,
+  seed = "off",
   q_thresh = p_thresh,
   tol = 1e-10,
   max_iterations = 100
@@ -32,11 +33,13 @@ crossval_o2m_adjR2(
 
 \item{nr_folds}{Positive integer. Number of folds to consider. Note: \code{kcv=N} gives leave-one-out CV. Note that CV with less than two folds does not make sense.}
 
-\item{nr_cores}{Positive integer. Number of cores to use for CV. You might want to use \code{\link{detectCores}()}. Defaults to 1.}
+\item{nr_cores}{Positive integer. Number of cores to use for CV. You might want to use \code{\link[parallel:detectCores]{detectCores}()}. Defaults to 1.}
 
 \item{stripped}{Logical. Use the stripped version of o2m (usually when cross-validating)?}
 
 \item{p_thresh}{Integer. If \code{X} has more than \code{p_thresh} columns, a power method optimization is used, see \code{\link{o2m2}}}
+
+\item{seed}{Integer. A random seed to make the analysis reproducible.}
 
 \item{q_thresh}{Integer. If \code{Y} has more than \code{q_thresh} columns, a power method optimization is used, see \code{\link{o2m2}}}
 

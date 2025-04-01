@@ -5,11 +5,12 @@
 #' @param ax Vector of non-negative integers. Denotes the numbers of X-specific components to consider.
 #' @param ay Vector of non-negative integers. Denotes the numbers of Y-specific components to consider.
 #' @param nr_folds Positive integer. Number of folds to consider. Note: \code{kcv=N} gives leave-one-out CV. Note that CV with less than two folds does not make sense.
-#' @param nr_cores Positive integer. Number of cores to use for CV. You might want to use \code{\link{detectCores}()}. Defaults to 1.
+#' @param nr_cores Positive integer. Number of cores to use for CV. You might want to use \code{\link[parallel:detectCores]{detectCores}()}. Defaults to 1.
+#' @param seed Integer. A random seed to make the analysis reproducible.
 #'
 #' @details This is the standard CV approach. It minimizes the sum of the prediction errors of X and Y over a three-dimensional grid of integers.
-#' Parallelization is possible on all platforms. On Windows it uses \code{\link{makePSOCKcluster}}, then exports all necessary objects to the workers,
-#'  and then calls \code{\link{parLapply}}. On OSX and Linux the more friendly \code{\link{mclapply}} is used, which uses forking.
+#' Parallelization is possible on all platforms. On Windows it uses \code{\link[parallel:makePSOCKcluster]{makePSOCKcluster}}, then exports all necessary objects to the workers,
+#'  and then calls \code{\link{parLapply}}. On OSX and Linux the more friendly \code{\link[parallel:mclapply]{mclapply}} is used, which uses forking (but copies your global workspace).
 #'  A print method is defined, printing the minimizers and minimum in a readable way. Also the elapsed time is tracked and reported.
 #'
 #' @return List of class \code{"cvo2m"} with the original and sorted Prediction errors and the number of folds used.
@@ -25,7 +26,7 @@
 #' @export
 crossval_o2m <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
                          stripped = TRUE, p_thresh = 3000,
-                         q_thresh = p_thresh, tol = 1e-10, max_iterations = 100) {
+                         q_thresh = p_thresh, tol = 1e-10, max_iterations = 100, seed = "off") {
   tic = proc.time()
   X <- as.matrix(X)
   Y <- as.matrix(Y)
@@ -33,7 +34,7 @@ crossval_o2m <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
   if(any(abs(colMeans(X)) > 1e-5)){message("Data is not centered, proceeding...\n")}
   kcv = nr_folds
   if(ncol(X) < max(a)+max(ax,ay) | ncol(Y) < max(a)+max(ay,ay))
-    warning("Some combinations of # components exceed data dimensions, these combinations are not considered\n")
+    message("Some combinations of # components exceed data dimensions, these combinations are not considered\n")
   if(ncol(X) < min(a)+min(ax,ay) | ncol(Y) < min(a)+min(ay,ay))
     stop("There is no valid combination of numbers of components! Please select fewer components in a, ax, ay.\n")
   if(nrow(X) < kcv) stop("There are more folds than samples, please set nr_folds <= ",nrow(X),"\n")
@@ -54,13 +55,13 @@ crossval_o2m <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
     clusterExport(cl_crossval_o2m, varlist = ls(), envir = environment())
     outp=parLapply(cl_crossval_o2m,parms,function(e){
       suppressMessages(loocv_combi(X,Y,e$a,e$nx,e$ny,app_err=F,func=o2m,kcv=kcv,
-                                   stripped = stripped, p_thresh = p_thresh,
+                                   stripped = stripped, p_thresh = p_thresh, seed = seed, 
                                    q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)[[1]])
     })
   } else {
     outp=mclapply(mc.cores=nr_cores,parms,function(e){
       suppressMessages(loocv_combi(X,Y,e$a,e$nx,e$ny,app_err=F,func=o2m,kcv=kcv,
-                                   stripped = stripped, p_thresh = p_thresh,
+                                   stripped = stripped, p_thresh = p_thresh, seed = seed,
                                    q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)[[1]])
     })
   }
@@ -104,7 +105,7 @@ crossval_o2m <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
 #' })
 #' @export
 crossval_o2m_adjR2 <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
-                               stripped = TRUE, p_thresh = 3000,
+                               stripped = TRUE, p_thresh = 3000, seed = "off", 
                                q_thresh = p_thresh, tol = 1e-10, max_iterations = 100)
 {
   tic = proc.time()
@@ -114,7 +115,7 @@ crossval_o2m_adjR2 <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
   if(any(abs(colMeans(X)) > 1e-5)){message("Data is not centered, proceeding...\n")}
   kcv = nr_folds
   if(ncol(X) < max(a)+max(ax,ay) | ncol(Y) < max(a)+max(ay,ay))
-    warning("Some combinations of # components exceed data dimensions, these combinations are not considered\n")
+    message("Some combinations of # components exceed data dimensions, these combinations are not considered\n")
   if(ncol(X) < min(a)+min(ax,ay) | ncol(Y) < min(a)+min(ay,ay))
     stop("There is no valid combination of numbers of components! Please select fewer components in a, ax, ay.\n")
   if(nrow(X) < kcv) stop("There are more folds than samples, please set nr_folds <= ",nrow(X),"\n")
@@ -141,7 +142,7 @@ crossval_o2m_adjR2 <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
                       nrow = length(ay), byrow=TRUE)
       nxny = which(R2grid == max(R2grid), arr.ind = TRUE)[1,]
       a_mse = suppressMessages(loocv_combi(X,Y,e$a,ax[nxny[2]],ay[nxny[1]],app_err=F,func=o2m,kcv=kcv,
-                                           stripped = stripped, p_thresh = p_thresh,
+                                           stripped = stripped, p_thresh = p_thresh, seed = seed, 
                                            q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)[[1]])
       c(a_mse, e$a, ax[nxny[2]],ay[nxny[1]])
     })
@@ -157,7 +158,7 @@ crossval_o2m_adjR2 <- function(X, Y, a, ax, ay, nr_folds, nr_cores = 1,
       #R2grid[which(is.na(R2grid))] = -999
       nxny = which(R2grid == max(R2grid,na.rm = TRUE), arr.ind = TRUE)[1,]
       a_mse = suppressMessages(loocv_combi(X,Y,e$a,ax[nxny[2]],ay[nxny[1]],app_err=F,func=o2m,kcv=kcv,
-                                           stripped = stripped, p_thresh = p_thresh,
+                                           stripped = stripped, p_thresh = p_thresh, seed = seed, 
                                            q_thresh = q_thresh, tol = tol, max_iterations = max_iterations)[[1]])
       c(a_mse, e$a, ax[nxny[2]],ay[nxny[1]])
     })
@@ -487,7 +488,7 @@ crossval_sparsity <- function(X, Y, n, nx, ny, nr_folds, keepx_seq=NULL, keepy_s
   #bestsp$srr <- srr_covTU
   bestsp$x <- x_max
   bestsp$y <- y_max
-  return(list(Best = unlist(bestsp), Err = mean_covTU, SErr = srr_covTU))
+  return(list(Best = unlist(bestsp), Covs = mean_covTU, SEcov = srr_covTU))
 }
 
 
